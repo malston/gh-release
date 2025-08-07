@@ -232,12 +232,18 @@ OVERRIDE_COUNT=0
 # Count how many parameters were overridden via command line (not environment)
 OVERRIDE_COUNT=${#CLI_OVERRIDES[@]}
 
-# Only create temp vars file if we have overrides AND a params file
-if [[ $OVERRIDE_COUNT -gt 0 && -n "${PARAMS_FILE:-}" ]]; then
+# Check if any environment variables are set that need to be passed through
+ENV_VAR_COUNT=0
+[[ -n "${GITHUB_TOKEN}" ]] && ENV_VAR_COUNT=$((ENV_VAR_COUNT + 1))
+[[ -n "${GIT_PRIVATE_KEY}" ]] && ENV_VAR_COUNT=$((ENV_VAR_COUNT + 1))
+[[ -n "${GITHUB_API_URL}" && "${GITHUB_API_URL}" != "https://api.github.com" ]] && ENV_VAR_COUNT=$((ENV_VAR_COUNT + 1))
+
+# Create temp vars file if we have CLI overrides OR environment variables AND a params file
+if [[ ($OVERRIDE_COUNT -gt 0 || $ENV_VAR_COUNT -gt 0) && -n "${PARAMS_FILE:-}" ]]; then
     TEMP_VARS_FILE=$(mktemp /tmp/gh-release-vars.XXXXXX.yml)
     trap 'rm -f $TEMP_VARS_FILE' EXIT
 
-    echo "# Command line parameter overrides" > "$TEMP_VARS_FILE"
+    echo "# Command line parameter overrides and environment variables" > "$TEMP_VARS_FILE"
 
     # Write CLI-overridden values and environment variables to temp file
     [[ -n "${CLI_OVERRIDES[owner]:-}" ]] && echo "owner: ${OWNER}" >> "$TEMP_VARS_FILE"
@@ -248,7 +254,7 @@ if [[ $OVERRIDE_COUNT -gt 0 && -n "${PARAMS_FILE:-}" ]]; then
     [[ -n "${CLI_OVERRIDES[git_branch]:-}" ]] && echo "git_branch: ${GIT_BRANCH}" >> "$TEMP_VARS_FILE"
     if [[ -n "${CLI_OVERRIDES[git_private_key]:-}" || (-n "${GIT_PRIVATE_KEY}" && -z "${CLI_OVERRIDES[git_private_key]:-}") ]]; then
         echo "git_private_key: |" >> "$TEMP_VARS_FILE"
-        echo "${GIT_PRIVATE_KEY}" | sed 's/^/  /' >> "$TEMP_VARS_FILE"
+        printf "%s\n" "${GIT_PRIVATE_KEY}" | sed 's/^/  /' >> "$TEMP_VARS_FILE"
     fi
     [[ -n "${CLI_OVERRIDES[release_tag]:-}" ]] && echo "release_tag: ${RELEASE_TAG}" >> "$TEMP_VARS_FILE"
     [[ -n "${CLI_OVERRIDES[release_name]:-}" ]] && echo "release_name: ${RELEASE_NAME}" >> "$TEMP_VARS_FILE"
@@ -299,6 +305,9 @@ if [[ -n "$PARAMS_FILE" && -f "$PARAMS_FILE" ]]; then
     echo "Params File: $PARAMS_FILE"
     if [[ $OVERRIDE_COUNT -gt 0 ]]; then
         echo "Command Line Overrides: $OVERRIDE_COUNT parameters"
+    fi
+    if [[ $ENV_VAR_COUNT -gt 0 ]]; then
+        echo "Environment Variables: $ENV_VAR_COUNT parameters"
     fi
 elif [[ -n "$PARAMS_FILE" ]]; then
     echo "Params File: $PARAMS_FILE (not found - using command line only)"

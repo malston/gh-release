@@ -46,7 +46,7 @@ cp params-simple.yml.example params.yml
 For advanced workflows with container image management:
 
 ```bash
-# Copy and customize configuration  
+# Copy and customize configuration
 cp params.yml.example params.yml
 
 # Deploy pipeline
@@ -99,7 +99,7 @@ cp params-github-enterprise.yml.example params.yml
 **Examples:**
 
 - GitHub.com: `https://api.github.com`
-- GitHub Enterprise: `https://github3.company.com/api/v3`
+- GitHub Enterprise: `https://github.company.com/api/v3`
 - Generic Enterprise: `https://github.acme.com/api/v3`
 
 ### Optional Release Parameters
@@ -139,7 +139,7 @@ cp params-github-enterprise.yml.example params.yml
 
 # GitHub Enterprise deployment
 ./ci/fly.sh -t my-target \
-  --github-api-url https://github3.company.com/api/v3 \
+  --github-api-url https://github.company.com/api/v3 \
   --owner myorg \
   --repository myrepo \
   --github-token $GITHUB_TOKEN
@@ -156,7 +156,7 @@ cp params-github-enterprise.yml.example params.yml
 ```bash
 # Set environment variables
 export GITHUB_TOKEN=ghp_xxxxxxxxxxxx
-export GITHUB_API_URL=https://github3.company.com/api/v3
+export GITHUB_API_URL=https://github.company.com/api/v3
 export GIT_PRIVATE_KEY="$(cat ~/.ssh/id_rsa)"
 
 # Deploy with environment variables
@@ -171,7 +171,7 @@ Once deployed, trigger pipeline jobs:
 # Create a release
 fly -t my-target trigger-job -j gh-release/create-release
 
-# Delete a release  
+# Delete a release
 fly -t my-target trigger-job -j gh-release/delete-release
 ```
 
@@ -321,7 +321,7 @@ Both pipelines include these jobs:
    ```bash
    # Check Concourse target
    fly -t my-target login
-   
+
    # Verify parameters
    ./ci/fly.sh -h
    ```
@@ -332,10 +332,10 @@ Both pipelines include these jobs:
    # Test API connectivity
    curl -H "Authorization: Bearer $GITHUB_TOKEN" \
         https://api.github.com/user
-   
+
    # For GitHub Enterprise
    curl -H "Authorization: Bearer $GITHUB_TOKEN" \
-        https://github3.company.com/api/v3/user
+        https://github.company.com/api/v3/user
    ```
 
 3. **Release creation fails**

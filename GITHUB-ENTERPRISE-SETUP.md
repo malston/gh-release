@@ -112,14 +112,14 @@ git_uri: git@github.acme.com:myorg/myrepo.git
 | Type | Pattern | Example |
 |------|---------|---------|
 | GitHub.com | `https://api.github.com` | Default |
-| GitHub Enterprise | `https://your-domain/api/v3` | `https://github3.company.com/api/v3` |
+| GitHub Enterprise | `https://your-domain/api/v3` | `https://github.company.com/api/v3` |
 
 ### Git URLs
 
 | Type | Pattern | Example |
 |------|---------|---------|
 | GitHub.com | `git@github.com:org/repo.git` | Default |
-| GitHub Enterprise | `git@your-domain:org/repo.git` | `git@github3.company.com:org/repo.git` |
+| GitHub Enterprise | `git@your-domain:org/repo.git` | `git@github.company.com:org/repo.git` |
 
 ## Command Line Usage
 
@@ -131,14 +131,14 @@ git_uri: git@github.acme.com:myorg/myrepo.git
 
 # Override specific values
 ./ci/fly.sh -t target --params ./params.yml \
-  --github-api-url https://github3.company.com/api/v3
+  --github-api-url https://github.company.com/api/v3
 ```
 
 ### Using Command Line Flags
 
 ```bash
 ./ci/fly.sh -t target \
-  --github-api-url https://github3.company.com/api/v3 \
+  --github-api-url https://github.company.com/api/v3 \
   --owner myorg \
   --repository myrepo \
   --github-token $GITHUB_ENTERPRISE_TOKEN
@@ -147,7 +147,7 @@ git_uri: git@github.acme.com:myorg/myrepo.git
 ### Using Environment Variables
 
 ```bash
-export GITHUB_API_URL=https://github3.company.com/api/v3
+export GITHUB_API_URL=https://github.company.com/api/v3
 export GITHUB_TOKEN=your_enterprise_token
 
 ./ci/fly.sh -t target --params ./params.yml
@@ -161,11 +161,11 @@ export GITHUB_TOKEN=your_enterprise_token
 # Test API connectivity
 curl -H "Authorization: Bearer $GITHUB_TOKEN" \
      -H "Accept: application/vnd.github+json" \
-     https://github3.company.com/api/v3/user
+     https://github.company.com/api/v3/user
 
 # Test with container
 GITHUB_TOKEN=$GITHUB_TOKEN \
-GITHUB_API_URL=https://github3.company.com/api/v3 \
+GITHUB_API_URL=https://github.company.com/api/v3 \
 ./scripts/test-container.sh --image ubuntu:22.04 --mode github
 ```
 
@@ -173,7 +173,7 @@ GITHUB_API_URL=https://github3.company.com/api/v3 \
 
 ```bash
 # Test SSH connectivity to enterprise instance
-ssh -T git@github3.company.com
+ssh -T git@github.company.com
 ```
 
 ## Troubleshooting
@@ -197,14 +197,14 @@ ssh -T git@github3.company.com
 ```bash
 # 1. Test API connectivity
 curl -v -H "Authorization: Bearer $GITHUB_TOKEN" \
-     https://github3.company.com/api/v3/user
+     https://github.company.com/api/v3/user
 
 # 2. Test repository access
 curl -H "Authorization: Bearer $GITHUB_TOKEN" \
-     https://github3.company.com/api/v3/repos/org/repo
+     https://github.company.com/api/v3/repos/org/repo
 
 # 3. Test SSH key
-ssh -vT git@github3.company.com
+ssh -vT git@github.company.com
 ```
 
 ## Security Considerations
@@ -268,7 +268,7 @@ For enterprises behind proxies:
 # Add to container environment
 http_proxy: http://proxy.company.com:8080
 https_proxy: http://proxy.company.com:8080
-no_proxy: localhost,127.0.0.1,github3.company.com
+no_proxy: localhost,127.0.0.1,github.company.com
 ```
 
 ## Examples
@@ -282,7 +282,7 @@ repository: my-app
 github_token: ((vault-github-enterprise-token))
 github_api_url: https://github.acme.com/api/v3
 
-# Git Repository Configuration  
+# Git Repository Configuration
 git_uri: git@github.acme.com:my-team/my-app.git
 git_branch: main
 git_private_key: ((vault-ssh-private-key))
@@ -328,8 +328,8 @@ cat > params.yml <<EOF
 # Non-sensitive configuration (safe to commit)
 owner: your-org
 repository: your-repo
-github_api_url: https://github3.acme.com/api/v3
-git_uri: git@github3.acme.com:your-org/your-repo.git
+github_api_url: https://github.acme.com/api/v3
+git_uri: git@github.acme.com:your-org/your-repo.git
 git_branch: main
 
 # S3 Container Configuration

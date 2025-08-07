@@ -10,10 +10,10 @@
 owner: your-github-org
 repository: your-repo-name
 github_token: ((vault-github-enterprise-token))  # Use Concourse credential management
-github_api_url: https://github3.company.com/api/v3  # GitHub Enterprise API URL
+github_api_url: https://github.company.com/api/v3  # GitHub Enterprise API URL
 
-# Git Repository Configuration  
-git_uri: git@github3.company.com:your-org/your-repo.git
+# Git Repository Configuration
+git_uri: git@github.company.com:your-org/your-repo.git
 git_branch: main
 git_private_key: ((vault-ssh-private-key))  # Use Concourse credential management
 
@@ -33,7 +33,7 @@ container_image_repository: ubuntu  # Use ubuntu:22.04 or your custom image
 container_image_tag: "22.04"  # LTS version with curl, jq available
 
 # Notes:
-# - For ACME GitHub Enterprise, use github3.acme.com
+# - For ACME GitHub Enterprise, use github.acme.com
 # - For other enterprise instances, replace with your enterprise domain
 # - API URL format: https://your-github-enterprise.com/api/v3
 # - Git URI format: git@your-github-enterprise.com:org/repo.git
