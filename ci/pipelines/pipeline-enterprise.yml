@@ -1,0 +1,78 @@
+resources:
+  - name: s3-container-image
+    type: s3
+    icon: cloud-download-outline
+    source:
+      access_key_id: ((concourse_s3_access_key_id))      # VAULT SECRET
+      secret_access_key: ((concourse_s3_secret_access_key)) # VAULT SECRET
+      bucket: ((concourse-s3-bucket))                    # params file
+      endpoint: ((concourse-s3-endpoint))                # params file
+      regexp: ((cflinux_current_image))/((cflinux_current_image))-(.*).tgz # params file
+    tags:
+      - ((worker_tags))                                  # params file
+
+  - name: repo
+    type: git
+    icon: github
+    source:
+      uri: ((git_uri))                                   # params file
+      branch: ((git_branch))                             # params file
+      private_key: ((git_private_key))                   # VAULT SECRET
+    tags:
+      - ((worker_tags))                                  # params file
+
+jobs:
+- name: create-release
+  serial: true
+  plan:
+    - in_parallel:
+      - get: s3-container-image
+        params:
+          unpack: true
+        tags:
+          - ((worker_tags))
+      - get: repo
+        tags:
+          - ((worker_tags))
+
+    - task: create-github-release
+      image: s3-container-image
+      file: repo/ci/tasks/create-release/task.yml
+      params:
+        GITHUB_TOKEN: ((github_token))            # VAULT SECRET
+        OWNER: ((owner))                          # params file
+        REPOSITORY: ((repository))                # params file
+        RELEASE_TAG: ((release_tag))              # params file (or CLI override)
+        RELEASE_NAME: ((release_name))            # params file (or CLI override)
+        RELEASE_BODY: ((release_body))            # params file (or CLI override)
+        IS_DRAFT: ((is_draft))                    # params file (or CLI override)
+        IS_PRERELEASE: ((is_prerelease))          # params file (or CLI override)
+        GITHUB_API_URL: ((github_api_url))        # params file
+      tags:
+        - ((worker_tags))                         # params file (or CLI override)
+
+- name: delete-release
+  serial: true
+  plan:
+    - in_parallel:
+      - get: s3-container-image
+        params:
+          unpack: true
+        tags:
+          - ((worker_tags))
+      - get: repo
+        tags:
+          - ((worker_tags))
+
+    - task: delete-github-release
+      image: s3-container-image
+      file: repo/ci/tasks/delete-release/task.yml
+      params:
+        GITHUB_TOKEN: ((github_token))            # VAULT SECRET
+        OWNER: ((owner))                          # params file
+        REPOSITORY: ((repository))                # params file
+        RELEASE_TAG: ((release_tag))              # params file (or CLI override)
+        DELETE_TAG: ((delete_tag))                # params file (or CLI override)
+        GITHUB_API_URL: ((github_api_url))        # params file
+      tags:
+        - ((worker_tags))                         # params file (or CLI override)

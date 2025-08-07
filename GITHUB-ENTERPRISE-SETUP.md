@@ -47,18 +47,22 @@ cp params-github-enterprise.yml.example params.yml
 The enterprise pipeline (`fly-enterprise.sh` and `pipeline-enterprise.yml`) provides:
 
 #### **Mandatory Vault Integration**
+
 All secrets MUST be stored in Vault:
+
 - `github_token` - GitHub access token
 - `git_private_key` - SSH private key for repository access
 - `concourse_s3_access_key_id` - S3 access key for container images
 - `concourse_s3_secret_access_key` - S3 secret key
 
 #### **Configuration Lockdown**
+
 - **No CLI overrides** for infrastructure settings (GitHub, Git, S3)
 - **Params file required** - Cannot run without proper configuration
 - **Release parameters only** can be overridden via CLI (tag, name, draft status)
 
 #### **Custom Credential Mapping**
+
 Use `setup-enterprise.sh` to map your existing Vault paths:
 
 ```bash
@@ -210,16 +214,20 @@ ssh -vT git@github3.company.com
 ### Token Management
 
 - **ALWAYS use Concourse credential management** for all secrets:
+
   ```yaml
   github_token: ((vault-github-enterprise-token))  ✅ SECURE
   git_private_key: ((vault-ssh-private-key))       ✅ SECURE
   ```
+
 - **NEVER put actual tokens in params files:**
+
   ```yaml
   github_token: ghp_xxxxxxxxxxxx                   ❌ INSECURE
   git_private_key: |                               ❌ INSECURE
     -----BEGIN RSA PRIVATE KEY-----
   ```
+
 - Use Concourse vault/credential management for all secrets
 - Never commit enterprise tokens to repository
 - Use least-privilege tokens (only repository write access needed)
@@ -298,6 +306,7 @@ create_github_release my-app my-team $GITHUB_TOKEN v1.0.0 \
 ### Step-by-Step Enterprise Deployment
 
 1. **Map Your Existing Vault Credentials**
+
 ```bash
 # Run interactive setup
 ./setup-enterprise.sh --interactive
@@ -310,6 +319,7 @@ create_github_release my-app my-team $GITHUB_TOKEN v1.0.0 \
 ```
 
 2. **Configure Non-Sensitive Parameters**
+
 ```bash
 cp params-github-enterprise.yml.example params.yml
 
@@ -339,6 +349,7 @@ EOF
 ```
 
 3. **Verify Vault Credentials Exist**
+
 ```bash
 # Test your Vault access (example with vault CLI)
 vault read company/github/release-token
@@ -348,6 +359,7 @@ vault read company/aws/s3-secret-access-key
 ```
 
 4. **Deploy the Enterprise Pipeline**
+
 ```bash
 # Deploy with strict configuration management
 ./ci/fly-enterprise.sh -t production --params ./params.yml
@@ -360,6 +372,7 @@ fly -t production set-pipeline \
 ```
 
 5. **Trigger a Release**
+
 ```bash
 # Create a release with specific tag
 ./ci/fly-enterprise.sh -t production \
@@ -380,6 +393,7 @@ fly -t production trigger-job -j gh-release-enterprise/create-release
    - List all GitHub, Git, and S3 credentials
 
 2. **Store Secrets in Vault**
+
    ```bash
    # Example Vault commands
    vault write company/github/release-token value=@github-token.txt
@@ -389,6 +403,7 @@ fly -t production trigger-job -j gh-release-enterprise/create-release
    ```
 
 3. **Run Setup Script**
+
    ```bash
    ./setup-enterprise.sh --interactive
    ```
@@ -398,6 +413,7 @@ fly -t production trigger-job -j gh-release-enterprise/create-release
    - Keep only non-sensitive configuration
 
 5. **Test and Deploy**
+
    ```bash
    ./ci/fly-enterprise.sh -t staging --params ./params.yml
    ```

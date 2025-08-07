@@ -1,0 +1,15 @@
+platform: linux
+
+inputs:
+  - name: repo
+
+params:
+  GITHUB_TOKEN:
+  OWNER:
+  REPOSITORY:
+  RELEASE_TAG:
+  DELETE_TAG: "false"
+  GITHUB_API_URL: "https://api.github.com"
+
+run:
+  path: repo/ci/tasks/delete-release/task.sh

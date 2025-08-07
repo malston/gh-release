@@ -1,0 +1,272 @@
+#!/usr/bin/env bash
+
+set -o errexit
+
+__DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+
+PIPELINE="gh-release"
+
+# Default values
+GIT_BRANCH="${GIT_BRANCH:-main}"
+WORKER_TAGS="${WORKER_TAGS:-default}"
+IS_DRAFT="${IS_DRAFT:-false}"
+IS_PRERELEASE="${IS_PRERELEASE:-false}"
+DELETE_TAG="${DELETE_TAG:-false}"
+
+# Enterprise pipeline: All configuration comes from params file
+# No environment variable initialization to enforce params file usage
+
+usage() {
+    cat <<EOF
+Usage:
+    $0 -t <target> [-p <pipeline_name>] [OPTIONS]
+
+Required:
+   -t <target>              Concourse target name
+
+Options:
+   -p <pipeline name>       Pipeline name [default: $PIPELINE]
+   --params <file>          Path to params.yml file [default: ./params.yml]
+
+   Configuration Sources:
+   # VAULT SECRETS (use Concourse credential management):
+   #   - github_token: ((vault-github-token))
+   #   - git_private_key: ((vault-ssh-private-key))
+   #   - concourse_s3_access_key_id: ((vault-s3-access-key))
+   #   - concourse_s3_secret_access_key: ((vault-s3-secret-key))
+   #
+   # PARAMS FILE (non-sensitive configuration):
+   #   - owner, repository, github_api_url
+   #   - git_uri, git_branch
+   #   - concourse-s3-bucket, concourse-s3-endpoint, cflinux_current_image
+   #   - worker_tags (can also be overridden via CLI)
+
+   Release Configuration (CLI overrides allowed):
+   --release-tag <tag>      Release tag
+   --release-name <name>    Release name
+   --release-body <body>    Release body/description
+   --is-draft               Mark release as draft
+   --is-prerelease          Mark as pre-release
+   --delete-tag             Delete Git tag when deleting release
+
+   Other:
+   --worker-tags <tags>     Worker tags [default: $WORKER_TAGS]
+   -h, --help               Display this help message
+
+Environment Variables:
+   # All configuration must be provided via params file
+
+Examples:
+   # Enterprise pipeline requires params file (ALL config must be in params)
+   $0 -t my-target --params ./params.yml
+
+   # Override specific release parameters only
+   $0 -t my-target --params ./params.yml --release-tag v1.0.0 --is-draft
+
+   # Only release parameters can be overridden via CLI
+   $0 -t my-target --params ./params.yml --release-name "Hotfix Release"
+
+EOF
+}
+
+# Initialize variables
+TARGET=""
+PIPELINE_NAME="$PIPELINE"
+PARAMS_FILE=""
+declare -a FLY_ARGS=()
+
+# Track which parameters were set via command line (not environment)
+declare -A CLI_OVERRIDES=()
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+    -t | --target)
+        TARGET="$2"
+        shift 2
+        ;;
+    -p | --pipeline)
+        PIPELINE_NAME="$2"
+        shift 2
+        ;;
+    --params)
+        PARAMS_FILE="$2"
+        shift 2
+        ;;
+    --release-tag)
+        RELEASE_TAG="$2"
+        CLI_OVERRIDES[release_tag]=1
+        shift 2
+        ;;
+    --release-name)
+        RELEASE_NAME="$2"
+        CLI_OVERRIDES[release_name]=1
+        shift 2
+        ;;
+    --release-body)
+        RELEASE_BODY="$2"
+        shift 2
+        ;;
+    --is-draft)
+        IS_DRAFT="true"
+        shift
+        ;;
+    --is-prerelease)
+        IS_PRERELEASE="true"
+        shift
+        ;;
+    --delete-tag)
+        DELETE_TAG="true"
+        shift
+        ;;
+    --worker-tags)
+        WORKER_TAGS="$2"
+        shift 2
+        ;;
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    *)
+        echo "Unknown option: $1"
+        usage
+        exit 1
+        ;;
+    esac
+done
+
+# Validate required arguments
+if [[ -z "$TARGET" ]]; then
+    echo "Error: Target is required (-t <target>)"
+    echo ""
+    usage
+    exit 1
+fi
+
+# Enterprise pipeline requires params file for all infrastructure configuration
+if [[ -z "$PARAMS_FILE" ]]; then
+    # Check for default params.yml
+    if [[ -f "./params.yml" ]]; then
+        PARAMS_FILE="./params.yml"
+        echo "Using default params.yml file"
+    else
+        echo "Error: Enterprise pipeline requires a params file (--params <file>)"
+        echo "All infrastructure settings must be configured via params file"
+        echo ""
+        usage
+        exit 1
+    fi
+fi
+
+# Check if params file exists and add it to fly args
+if [[ -n "$PARAMS_FILE" ]]; then
+    if [[ -f "$PARAMS_FILE" ]]; then
+        FLY_ARGS+=("-l" "$PARAMS_FILE")
+    else
+        echo "Warning: Params file not found: $PARAMS_FILE"
+    fi
+else
+    # Check for default params.yml in current directory
+    if [[ -f "./params.yml" ]]; then
+        echo "Using default params.yml file"
+        FLY_ARGS+=("-l" "./params.yml")
+    fi
+fi
+
+# Git configuration (including SSH key) must be provided via params file
+# No auto-detection for enterprise pipeline to ensure consistent configuration
+
+# Create temporary vars file for command line overrides (only if needed)
+TEMP_VARS_FILE=""
+OVERRIDE_COUNT=0
+
+# Count how many parameters were overridden via command line (not environment)
+OVERRIDE_COUNT=${#CLI_OVERRIDES[@]}
+
+# Only create temp vars file if we have overrides AND a params file
+if [[ $OVERRIDE_COUNT -gt 0 && -n "${PARAMS_FILE:-}" ]]; then
+    TEMP_VARS_FILE=$(mktemp /tmp/gh-release-vars.XXXXXX.yml)
+    trap 'rm -f $TEMP_VARS_FILE' EXIT
+
+    echo "# Command line parameter overrides" > "$TEMP_VARS_FILE"
+
+    # Write CLI-overridden values to temp file
+    # Note: Only release parameters and worker tags can be overridden via CLI
+    [[ -n "${CLI_OVERRIDES[release_tag]:-}" ]] && echo "release_tag: ${RELEASE_TAG}" >> "$TEMP_VARS_FILE"
+    [[ -n "${CLI_OVERRIDES[release_name]:-}" ]] && echo "release_name: ${RELEASE_NAME}" >> "$TEMP_VARS_FILE"
+    [[ -n "${RELEASE_BODY:-}" ]] && echo "release_body: \"${RELEASE_BODY}\"" >> "$TEMP_VARS_FILE"
+    [[ "${IS_DRAFT}" != "false" ]] && echo "is_draft: ${IS_DRAFT}" >> "$TEMP_VARS_FILE"
+    [[ "${IS_PRERELEASE}" != "false" ]] && echo "is_prerelease: ${IS_PRERELEASE}" >> "$TEMP_VARS_FILE"
+    [[ "${DELETE_TAG}" != "false" ]] && echo "delete_tag: ${DELETE_TAG}" >> "$TEMP_VARS_FILE"
+    [[ "${WORKER_TAGS}" != "default" ]] && echo "worker_tags: ${WORKER_TAGS}" >> "$TEMP_VARS_FILE"
+
+fi
+
+# Display configuration summary
+echo "========================================="
+echo "GitHub Release Pipeline Configuration (Enterprise)"
+echo "========================================="
+echo "Target: $TARGET"
+echo "Pipeline: $PIPELINE_NAME"
+
+if [[ -n "$PARAMS_FILE" && -f "$PARAMS_FILE" ]]; then
+    echo "Params File: $PARAMS_FILE"
+    if [[ $OVERRIDE_COUNT -gt 0 ]]; then
+        echo "Command Line Overrides: $OVERRIDE_COUNT parameters"
+    fi
+elif [[ -n "$PARAMS_FILE" ]]; then
+    echo "Params File: $PARAMS_FILE (not found - using command line only)"
+else
+    echo "Configuration: Command line parameters only"
+fi
+
+echo "Worker Tags: $WORKER_TAGS"
+echo "Configuration: All infrastructure settings from params file"
+
+if [[ -n "$RELEASE_TAG" ]]; then
+    echo "Release Tag: $RELEASE_TAG"
+fi
+
+if [[ "$IS_DRAFT" == "true" ]]; then
+    echo "Draft Release: Yes"
+fi
+
+if [[ "$IS_PRERELEASE" == "true" ]]; then
+    echo "Pre-release: Yes"
+fi
+
+if [[ "$DELETE_TAG" == "true" ]]; then
+    echo "Delete Git tag: Yes"
+fi
+
+echo "========================================="
+echo ""
+
+# Ask for confirmation
+read -p "Deploy pipeline? (y/N): " -n 1 -r
+echo ""
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Pipeline deployment cancelled"
+    exit 0
+fi
+
+# Deploy the pipeline
+echo "Deploying pipeline..."
+FLY_CMD=(fly -t "$TARGET" set-pipeline -p "$PIPELINE_NAME" -c "$__DIR/pipelines/pipeline-enterprise.yml" "${FLY_ARGS[@]}")
+
+# Only add temp vars file if it was created
+if [[ -n "$TEMP_VARS_FILE" ]]; then
+    FLY_CMD+=(-l "$TEMP_VARS_FILE")
+fi
+
+"${FLY_CMD[@]}"
+
+# Order pipelines alphabetically
+fly -t "$TARGET" order-pipelines -a &>/dev/null
+
+echo ""
+echo "Pipeline '$PIPELINE_NAME' deployed successfully!"
+echo ""
+echo "To trigger a job:"
+echo "  fly -t $TARGET trigger-job -j $PIPELINE_NAME/create-release"
+echo "  fly -t $TARGET trigger-job -j $PIPELINE_NAME/delete-release"

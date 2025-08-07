@@ -57,9 +57,10 @@ cp params.yml.example params.yml
 
 **📘 For comprehensive GitHub Enterprise setup, see [GITHUB-ENTERPRISE-SETUP.md](GITHUB-ENTERPRISE-SETUP.md)**
 
-#### Quick Start for Enterprise Users:
+#### Quick Start for Enterprise Users
 
 **Option 1: Enterprise Pipeline (Production)**
+
 ```bash
 # Setup with your existing Vault credentials
 ./setup-enterprise.sh --interactive
@@ -69,6 +70,7 @@ cp params.yml.example params.yml
 ```
 
 **Option 2: Basic Pipeline (Development)**
+
 ```bash
 # Copy enterprise template
 cp params-github-enterprise.yml.example params.yml
@@ -294,8 +296,9 @@ Both pipelines include these jobs:
 ⚠️ **CRITICAL: Never put secrets in params files!**
 
 ### Credential Management
+
 - **ALWAYS use Concourse credential management** for secrets:
-  - `github_token: ((vault-github-token))`  ✅ 
+  - `github_token: ((vault-github-token))`  ✅
   - `git_private_key: ((vault-ssh-private-key))` ✅
   - `github_token: ghp_xxxxxxxxxxxx` ❌ **NEVER**
 - Store all sensitive data in your Concourse credential store (Vault, CredHub, etc.)
@@ -303,6 +306,7 @@ Both pipelines include these jobs:
 - Never commit tokens or private keys to repository
 
 ### Best Practices
+
 - Use SSH keys for git authentication
 - Use least-privilege access for GitHub tokens
 - Rotate credentials regularly

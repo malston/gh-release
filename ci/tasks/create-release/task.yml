@@ -1,0 +1,18 @@
+platform: linux
+
+inputs:
+  - name: repo
+
+params:
+  GITHUB_TOKEN:
+  OWNER:
+  REPOSITORY:
+  RELEASE_TAG:
+  RELEASE_NAME:
+  RELEASE_BODY: ""
+  IS_DRAFT: "false"
+  IS_PRERELEASE: "false"
+  GITHUB_API_URL: "https://api.github.com"
+
+run:
+  path: repo/ci/tasks/create-release/task.sh

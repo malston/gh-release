@@ -1,0 +1,55 @@
+resources:
+  - name: basic-container-image
+    type: registry-image
+    icon: docker
+    source:
+      repository: ((container_image_repository))
+      tag: ((container_image_tag))
+
+  - name: repo
+    type: git
+    icon: github
+    source:
+      uri: ((git_uri))
+      branch: ((git_branch))
+      private_key: ((git_private_key))
+
+jobs:
+- name: create-release
+  serial: true
+  plan:
+    - in_parallel:
+      - get: basic-container-image
+      - get: repo
+
+    - task: create-github-release
+      image: basic-container-image
+      file: repo/ci/tasks/create-release/task.yml
+      params:
+        GITHUB_TOKEN: ((github_token))
+        OWNER: ((owner))
+        REPOSITORY: ((repository))
+        RELEASE_TAG: ((release_tag))
+        RELEASE_NAME: ((release_name))
+        RELEASE_BODY: ((release_body))
+        IS_DRAFT: ((is_draft))
+        IS_PRERELEASE: ((is_prerelease))
+        GITHUB_API_URL: ((github_api_url))
+
+- name: delete-release
+  serial: true
+  plan:
+    - in_parallel:
+      - get: basic-container-image
+      - get: repo
+
+    - task: delete-github-release
+      image: basic-container-image
+      file: repo/ci/tasks/delete-release/task.yml
+      params:
+        GITHUB_TOKEN: ((github_token))
+        OWNER: ((owner))
+        REPOSITORY: ((repository))
+        RELEASE_TAG: ((release_tag))
+        DELETE_TAG: ((delete_tag))
+        GITHUB_API_URL: ((github_api_url))

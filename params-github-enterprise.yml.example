@@ -1,0 +1,39 @@
+# GitHub Enterprise Release Pipeline Parameters
+# Example configuration for GitHub Enterprise instances
+# Copy this file to params.yml and update with your values
+#
+# ⚠️  SECURITY WARNING: Never put actual secrets in this file!
+# ⚠️  Use Concourse credential references like ((vault-github-enterprise-token))
+# ⚠️  NEVER commit real tokens or private keys to git!
+
+# GitHub Enterprise Configuration
+owner: your-github-org
+repository: your-repo-name
+github_token: ((vault-github-enterprise-token))  # Use Concourse credential management
+github_api_url: https://github3.company.com/api/v3  # GitHub Enterprise API URL
+
+# Git Repository Configuration  
+git_uri: git@github3.company.com:your-org/your-repo.git
+git_branch: main
+git_private_key: ((vault-ssh-private-key))  # Use Concourse credential management
+
+# Release Configuration
+release_tag: v1.0.0
+release_name: Release v1.0.0
+release_body: |
+  ## What's Changed
+  - Feature 1
+  - Feature 2
+  - Bug fixes
+is_draft: false
+is_prerelease: false
+
+# Container Configuration (Basic Linux container with required tools)
+container_image_repository: ubuntu  # Use ubuntu:22.04 or your custom image
+container_image_tag: "22.04"  # LTS version with curl, jq available
+
+# Notes:
+# - For ACME GitHub Enterprise, use github3.acme.com
+# - For other enterprise instances, replace with your enterprise domain
+# - API URL format: https://your-github-enterprise.com/api/v3
+# - Git URI format: git@your-github-enterprise.com:org/repo.git

@@ -1,0 +1,33 @@
+# GitHub Release Pipeline Parameters (Simple Version)
+# Copy this file to params.yml and update with your values
+# This is for the basic pipeline without S3 container requirements
+#
+# ⚠️  SECURITY WARNING: Never put actual secrets in this file!
+# ⚠️  Use Concourse credential references like ((vault-github-token))
+# ⚠️  NEVER commit real tokens or private keys to git!
+
+# GitHub Configuration
+owner: your-github-org
+repository: your-repo-name
+github_token: ((vault-github-token))  # Use Concourse credential management
+github_api_url: https://api.github.com  # For GitHub Enterprise: https://github.company.com/api/v3
+
+# Git Repository Configuration
+git_uri: git@github.com:your-org/your-repo.git
+git_branch: main
+git_private_key: ((vault-ssh-private-key))  # Use Concourse credential management
+
+# Release Configuration
+release_tag: v1.0.0
+release_name: Release v1.0.0
+release_body: |
+  ## What's Changed
+  - Feature 1
+  - Feature 2
+  - Bug fixes
+is_draft: false
+is_prerelease: false
+
+# Container Configuration (Basic Linux container with required tools)
+container_image_repository: ubuntu  # Alternatives: alpine, centos, debian
+container_image_tag: "22.04"  # LTS version with curl, jq available

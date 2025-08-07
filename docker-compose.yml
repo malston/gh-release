@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  gh-release-container:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gh-release-tools:latest
+    container_name: gh-release-test
+    volumes:
+      - ./ci:/home/concourse/ci:ro
+      - ./scripts:/home/concourse/scripts:ro
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_API_URL=${GITHUB_API_URL:-https://api.github.com}
+      - OWNER=${OWNER:-test-org}
+      - REPOSITORY=${REPOSITORY:-test-repo}
+    working_dir: /home/concourse
+    command: sleep infinity  # Keep container running for testing
+
+  # Alternative: Use pre-built image
+  gh-release-ubuntu:
+    image: ubuntu:22.04
+    container_name: gh-release-ubuntu
+    volumes:
+      - ./ci:/opt/ci:ro
+      - ./scripts:/opt/scripts:ro
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_API_URL=${GITHUB_API_URL:-https://api.github.com}
+      - OWNER=${OWNER:-test-org}
+      - REPOSITORY=${REPOSITORY:-test-repo}
+    working_dir: /opt
+    command: |
+      bash -c "
+      apt-get update && 
+      apt-get install -y curl jq git bash ca-certificates && 
+      sleep infinity
+      "
