@@ -24,7 +24,7 @@ Usage:
     $0 [OPTIONS]
 
 Options:
-    --output <file>          Output file for customized pipeline [default: pipeline-enterprise-custom.yml]
+    --output <file>          Output file for customized pipeline [default: ci/pipelines/pipeline-enterprise-custom.yml]
     --interactive           Interactive mode (prompts for each credential)
     --batch                 Batch mode (uses command line flags or defaults)
     -h, --help              Display this help message
@@ -47,14 +47,14 @@ Examples:
         --s3-secret-key-path "company/s3/secret-key"
 
     # Use existing credential names and generate custom pipeline
-    $0 --output my-custom-pipeline.yml --interactive
+    $0 --output ci/pipelines/my-custom-pipeline.yml --interactive
 
 EOF
 }
 
 # Default credential paths
 DEFAULT_GITHUB_TOKEN="vault-github-token"
-DEFAULT_SSH_KEY="vault-ssh-private-key" 
+DEFAULT_SSH_KEY="vault-ssh-private-key"
 DEFAULT_S3_ACCESS_KEY="vault-s3-access-key"
 DEFAULT_S3_SECRET_KEY="vault-s3-secret-key"
 
@@ -65,7 +65,7 @@ S3_ACCESS_KEY_PATH=""
 S3_SECRET_KEY_PATH=""
 
 # Script configuration
-OUTPUT_FILE="pipeline-enterprise-custom.yml"
+OUTPUT_FILE="ci/pipelines/pipeline-enterprise-custom.yml"
 INTERACTIVE_MODE=false
 BATCH_MODE=false
 
@@ -114,7 +114,7 @@ done
 
 # Validate mode selection
 if [[ "$INTERACTIVE_MODE" == "true" && "$BATCH_MODE" == "true" ]]; then
-    echo -e "${RED}Error: Cannot use both --interactive and --batch modes${NC}"
+    printf "${RED}Error: Cannot use both --interactive and --batch modes${NC}\n"
     exit 1
 fi
 
@@ -124,14 +124,14 @@ if [[ "$INTERACTIVE_MODE" == "false" && "$BATCH_MODE" == "false" ]]; then
 fi
 
 print_header() {
-    echo -e "${BLUE}=========================================${NC}"
-    echo -e "${BLUE}GitHub Release Pipeline - Enterprise Setup${NC}"
-    echo -e "${BLUE}=========================================${NC}"
+    printf "${BLUE}=========================================${NC}\n"
+    printf "${BLUE}GitHub Release Pipeline - Enterprise Setup${NC}\n"
+    printf "${BLUE}=========================================${NC}\n"
     echo ""
     echo "This script will help you customize the enterprise pipeline to use"
     echo "your existing Vault credential names."
     echo ""
-    echo -e "${YELLOW}Current default credential paths:${NC}"
+    printf "${YELLOW}Current default credential paths:${NC}\n"
     echo "  • GitHub Token: ((${DEFAULT_GITHUB_TOKEN}))"
     echo "  • SSH Private Key: ((${DEFAULT_SSH_KEY}))"
     echo "  • S3 Access Key: ((${DEFAULT_S3_ACCESS_KEY}))"
@@ -140,38 +140,38 @@ print_header() {
 }
 
 prompt_for_credentials() {
-    echo -e "${BLUE}=== Credential Path Configuration ===${NC}"
+    printf "${BLUE}=== Credential Path Configuration ===${NC}\n"
     echo ""
-    
+
     # GitHub Token
-    echo -e "${YELLOW}GitHub Token:${NC}"
+    printf "${YELLOW}GitHub Token:${NC}\n"
     echo "Enter the Vault path for your GitHub access token."
     echo "Examples: 'company/github/api-token', 'secrets/gh-token', 'vault-github-token'"
     echo ""
     read -p "GitHub Token path [default: ${DEFAULT_GITHUB_TOKEN}]: " input
     GITHUB_TOKEN_PATH="${input:-$DEFAULT_GITHUB_TOKEN}"
     echo ""
-    
+
     # SSH Private Key
-    echo -e "${YELLOW}SSH Private Key:${NC}"
+    printf "${YELLOW}SSH Private Key:${NC}\n"
     echo "Enter the Vault path for your SSH private key (for Git access)."
     echo "Examples: 'company/ssh/deploy-key', 'secrets/ssh-key', 'vault-ssh-private-key'"
     echo ""
     read -p "SSH Private Key path [default: ${DEFAULT_SSH_KEY}]: " input
     SSH_KEY_PATH="${input:-$DEFAULT_SSH_KEY}"
     echo ""
-    
+
     # S3 Access Key
-    echo -e "${YELLOW}S3 Access Key:${NC}"
+    printf "${YELLOW}S3 Access Key:${NC}\n"
     echo "Enter the Vault path for your S3 access key ID."
     echo "Examples: 'company/s3/access-key', 'secrets/s3-access', 'vault-s3-access-key'"
     echo ""
     read -p "S3 Access Key path [default: ${DEFAULT_S3_ACCESS_KEY}]: " input
     S3_ACCESS_KEY_PATH="${input:-$DEFAULT_S3_ACCESS_KEY}"
     echo ""
-    
+
     # S3 Secret Key
-    echo -e "${YELLOW}S3 Secret Key:${NC}"
+    printf "${YELLOW}S3 Secret Key:${NC}\n"
     echo "Enter the Vault path for your S3 secret access key."
     echo "Examples: 'company/s3/secret-key', 'secrets/s3-secret', 'vault-s3-secret-key'"
     echo ""
@@ -188,17 +188,17 @@ set_batch_defaults() {
 }
 
 confirm_configuration() {
-    echo -e "${BLUE}=== Configuration Summary ===${NC}"
+    printf "${BLUE}=== Configuration Summary ===${NC}\n"
     echo ""
-    echo -e "${YELLOW}Your credential mappings:${NC}"
+    printf "${YELLOW}Your credential mappings:${NC}\n"
     echo "  • GitHub Token: (($GITHUB_TOKEN_PATH))"
     echo "  • SSH Private Key: (($SSH_KEY_PATH))"
     echo "  • S3 Access Key: (($S3_ACCESS_KEY_PATH))"
     echo "  • S3 Secret Key: (($S3_SECRET_KEY_PATH))"
     echo ""
-    echo -e "${YELLOW}Output file:${NC} $OUTPUT_FILE"
+    printf "${YELLOW}Output file:${NC} $OUTPUT_FILE\n"
     echo ""
-    
+
     if [[ "$INTERACTIVE_MODE" == "true" ]]; then
         read -p "Continue with this configuration? (y/N): " -n 1 -r
         echo ""
@@ -211,14 +211,17 @@ confirm_configuration() {
 
 generate_custom_pipeline() {
     local template_file="$__DIR/ci/pipelines/pipeline-enterprise.yml"
-    
+
     if [[ ! -f "$template_file" ]]; then
-        echo -e "${RED}Error: Template file not found: $template_file${NC}"
+        printf "${RED}Error: Template file not found: $template_file${NC}\n"
         exit 1
     fi
-    
-    echo -e "${BLUE}Generating customized pipeline...${NC}"
-    
+
+    printf "${BLUE}Generating customized pipeline...${NC}\n"
+
+    # Ensure output directory exists
+    mkdir -p "$(dirname "$OUTPUT_FILE")"
+
     # Create the customized pipeline by replacing credential references
     sed \
         -e "s/((concourse_s3_access_key_id))/(($S3_ACCESS_KEY_PATH))/g" \
@@ -226,7 +229,7 @@ generate_custom_pipeline() {
         -e "s/((git_private_key))/(($SSH_KEY_PATH))/g" \
         -e "s/((github_token))/(($GITHUB_TOKEN_PATH))/g" \
         "$template_file" > "$OUTPUT_FILE"
-    
+
     # Add header comment to the generated file
     local temp_file=$(mktemp)
     cat > "$temp_file" <<EOF
@@ -240,48 +243,48 @@ generate_custom_pipeline() {
 #   S3 Secret Key: (($S3_SECRET_KEY_PATH))
 #
 # To use this pipeline:
-#   ./ci/fly-enterprise.sh -t my-target -p my-pipeline -c $OUTPUT_FILE --params params.yml
+#   fly -t my-target set-pipeline -p my-pipeline -c $OUTPUT_FILE --load-vars-from params.yml
 #
 
 EOF
-    
+
     cat "$OUTPUT_FILE" >> "$temp_file"
     mv "$temp_file" "$OUTPUT_FILE"
 }
 
 print_completion_message() {
     echo ""
-    echo -e "${GREEN}✓ Custom enterprise pipeline generated successfully!${NC}"
+    printf "${GREEN}✓ Custom enterprise pipeline generated successfully!${NC}\n"
     echo ""
-    echo -e "${YELLOW}Next steps:${NC}"
+    printf "${YELLOW}Next steps:${NC}\n"
     echo ""
     echo "1. Review the generated pipeline:"
-    echo "   ${BLUE}cat $OUTPUT_FILE${NC}"
+    printf "   ${BLUE}cat $OUTPUT_FILE${NC}\n"
     echo ""
     echo "2. Ensure your credentials exist in Vault:"
-    echo "   ${BLUE}• (($GITHUB_TOKEN_PATH)) - GitHub access token${NC}"
-    echo "   ${BLUE}• (($SSH_KEY_PATH)) - SSH private key${NC}"
-    echo "   ${BLUE}• (($S3_ACCESS_KEY_PATH)) - S3 access key ID${NC}"
-    echo "   ${BLUE}• (($S3_SECRET_KEY_PATH)) - S3 secret access key${NC}"
+    printf "   ${BLUE}• (($GITHUB_TOKEN_PATH)) - GitHub access token${NC}\n"
+    printf "   ${BLUE}• (($SSH_KEY_PATH)) - SSH private key${NC}\n"
+    printf "   ${BLUE}• (($S3_ACCESS_KEY_PATH)) - S3 access key ID${NC}\n"
+    printf "   ${BLUE}• (($S3_SECRET_KEY_PATH)) - S3 secret access key${NC}\n"
     echo ""
     echo "3. Deploy the customized pipeline:"
-    echo "   ${BLUE}./ci/fly-enterprise.sh -t my-target --params params.yml${NC}"
+    printf "   ${BLUE}./ci/fly-enterprise.sh -t my-target --params params.yml${NC}\n"
     echo ""
     echo "4. To use the custom pipeline file specifically:"
-    echo "   ${BLUE}fly -t my-target set-pipeline -p my-pipeline -c $OUTPUT_FILE -l params.yml${NC}"
+    printf "   ${BLUE}fly -t my-target set-pipeline -p my-pipeline -c $OUTPUT_FILE -l params.yml${NC}\n"
     echo ""
-    echo -e "${YELLOW}Note: You can always re-run this setup script to update your credential mappings.${NC}"
+    printf "${YELLOW}Note: You can always re-run this setup script to update your credential mappings.${NC}\n"
 }
 
 main() {
     print_header
-    
+
     if [[ "$INTERACTIVE_MODE" == "true" ]]; then
         prompt_for_credentials
     else
         set_batch_defaults
     fi
-    
+
     confirm_configuration
     generate_custom_pipeline
     print_completion_message
