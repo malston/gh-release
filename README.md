@@ -50,7 +50,7 @@ For advanced workflows with container image management:
 cp params.yml.example params.yml
 
 # Deploy pipeline
-./ci/fly-s3.sh -t my-concourse-target --params ./params.yml
+./ci/fly-enterprise.sh -t my-concourse-target --params ./params.yml
 ```
 
 ### 2. GitHub Enterprise Setup

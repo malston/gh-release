@@ -18,13 +18,14 @@ usage() {
 GitHub Release Management - Enterprise Pipeline Setup
 
 This script helps you customize the enterprise pipeline to use your existing
-Vault credential names instead of the default ones.
+Vault credential names instead of the default ones. It can also create or
+regenerate the params.yml file from the enterprise template.
 
 Usage:
     $0 [OPTIONS]
 
 Options:
-    --output <file>          Output file for customized pipeline [default: ci/pipelines/pipeline-enterprise-custom.yml]
+    --output <file>         Output file for customized pipeline [default: ci/pipelines/pipeline-enterprise-custom.yml]
     --interactive           Interactive mode (prompts for each credential)
     --batch                 Batch mode (uses command line flags or defaults)
     -h, --help              Display this help message
@@ -36,7 +37,7 @@ Credential Mapping Flags (batch mode):
     --s3-secret-key-path <path>     Vault path for S3 secret key [default: vault-s3-secret-key]
 
 Examples:
-    # Interactive setup (recommended)
+    # Interactive setup (recommended) - will offer to create/regenerate params.yml
     $0 --interactive
 
     # Batch mode with custom credential paths
@@ -48,6 +49,9 @@ Examples:
 
     # Use existing credential names and generate custom pipeline
     $0 --output ci/pipelines/my-custom-pipeline.yml --interactive
+
+Note: Interactive mode will check for params.yml and offer to create it from
+the enterprise template if it doesn't exist, or regenerate it if desired.
 
 EOF
 }
@@ -114,7 +118,7 @@ done
 
 # Validate mode selection
 if [[ "$INTERACTIVE_MODE" == "true" && "$BATCH_MODE" == "true" ]]; then
-    printf "${RED}Error: Cannot use both --interactive and --batch modes${NC}\n"
+    echo -e "${RED}Error: Cannot use both --interactive and --batch modes${NC}"
     exit 1
 fi
 
@@ -124,14 +128,14 @@ if [[ "$INTERACTIVE_MODE" == "false" && "$BATCH_MODE" == "false" ]]; then
 fi
 
 print_header() {
-    printf "${BLUE}=========================================${NC}\n"
-    printf "${BLUE}GitHub Release Pipeline - Enterprise Setup${NC}\n"
-    printf "${BLUE}=========================================${NC}\n"
+    echo -e "${BLUE}=========================================${NC}"
+    echo -e "${BLUE}GitHub Release Pipeline - Enterprise Setup${NC}"
+    echo -e "${BLUE}=========================================${NC}"
     echo ""
     echo "This script will help you customize the enterprise pipeline to use"
     echo "your existing Vault credential names."
     echo ""
-    printf "${YELLOW}Current default credential paths:${NC}\n"
+    echo -e "${YELLOW}Current default credential paths:${NC}"
     echo "  • GitHub Token: ((${DEFAULT_GITHUB_TOKEN}))"
     echo "  • SSH Private Key: ((${DEFAULT_SSH_KEY}))"
     echo "  • S3 Access Key: ((${DEFAULT_S3_ACCESS_KEY}))"
@@ -139,43 +143,107 @@ print_header() {
     echo ""
 }
 
+check_params_file() {
+    echo ""
+    echo -e "${BLUE}=== Parameter File Setup ===${NC}"
+    echo ""
+    
+    if [[ -f "params.yml" ]]; then
+        echo -e "${YELLOW}Warning: params.yml already exists.${NC}"
+        echo ""
+        echo "Would you like to:"
+        echo "1) Keep existing params.yml file"
+        echo "2) Regenerate params.yml from enterprise template"
+        echo ""
+        read -r -p "Choose option (1 or 2) [default: 1]: " choice
+        choice=${choice:-1}
+        
+        if [[ "$choice" == "2" ]]; then
+            create_params_file
+        else
+            echo ""
+            echo -e "${GREEN}✓ Keeping existing params.yml${NC}"
+        fi
+    else
+        echo -e "${YELLOW}No params.yml file found.${NC}"
+        echo ""
+        read -r -p "Create params.yml from enterprise template? (y/N): " create_params
+        
+        if [[ $create_params =~ ^[Yy]$ ]]; then
+            create_params_file
+        else
+            echo ""
+            echo -e "${YELLOW}Note: You'll need to create params.yml manually or run 'make example-params'${NC}"
+        fi
+    fi
+    echo ""
+}
+
+create_params_file() {
+    local template_file="params-github-enterprise.yml.example"
+    
+    if [[ ! -f "$template_file" ]]; then
+        echo -e "${RED}Error: Template file not found: $template_file${NC}"
+        return 1
+    fi
+    
+    echo ""
+    echo -e "${BLUE}Creating params.yml from enterprise template...${NC}"
+    
+    # Backup existing file if it exists
+    if [[ -f "params.yml" ]]; then
+        cp "params.yml" "params.yml.backup.$(date +%Y%m%d_%H%M%S)"
+        echo -e "${YELLOW}Backed up existing params.yml${NC}"
+    fi
+    
+    # Copy template to params.yml
+    cp "$template_file" "params.yml"
+    echo -e "${GREEN}✓ Created params.yml from enterprise template${NC}"
+    echo ""
+    echo -e "${YELLOW}Next steps:${NC}"
+    echo "1. Edit params.yml to customize for your environment"
+    echo "2. Update repository owner, name, and URLs"
+    echo "3. Ensure all secrets use Vault credential references"
+    echo ""
+}
+
 prompt_for_credentials() {
-    printf "${BLUE}=== Credential Path Configuration ===${NC}\n"
+    echo -e "${BLUE}=== Credential Path Configuration ===${NC}"
     echo ""
 
     # GitHub Token
-    printf "${YELLOW}GitHub Token:${NC}\n"
+    echo -e "${YELLOW}GitHub Token:${NC}"
     echo "Enter the Vault path for your GitHub access token."
     echo "Examples: 'company/github/api-token', 'secrets/gh-token', 'vault-github-token'"
     echo ""
-    read -p "GitHub Token path [default: ${DEFAULT_GITHUB_TOKEN}]: " input
+    read -r -p "GitHub Token path [default: ${DEFAULT_GITHUB_TOKEN}]: " input
     GITHUB_TOKEN_PATH="${input:-$DEFAULT_GITHUB_TOKEN}"
     echo ""
 
     # SSH Private Key
-    printf "${YELLOW}SSH Private Key:${NC}\n"
+    echo -e "${YELLOW}SSH Private Key:${NC}"
     echo "Enter the Vault path for your SSH private key (for Git access)."
     echo "Examples: 'company/ssh/deploy-key', 'secrets/ssh-key', 'vault-ssh-private-key'"
     echo ""
-    read -p "SSH Private Key path [default: ${DEFAULT_SSH_KEY}]: " input
+    read -r -p "SSH Private Key path [default: ${DEFAULT_SSH_KEY}]: " input
     SSH_KEY_PATH="${input:-$DEFAULT_SSH_KEY}"
     echo ""
 
     # S3 Access Key
-    printf "${YELLOW}S3 Access Key:${NC}\n"
+    echo -e "${YELLOW}S3 Access Key:${NC}"
     echo "Enter the Vault path for your S3 access key ID."
     echo "Examples: 'company/s3/access-key', 'secrets/s3-access', 'vault-s3-access-key'"
     echo ""
-    read -p "S3 Access Key path [default: ${DEFAULT_S3_ACCESS_KEY}]: " input
+    read -r -p "S3 Access Key path [default: ${DEFAULT_S3_ACCESS_KEY}]: " input
     S3_ACCESS_KEY_PATH="${input:-$DEFAULT_S3_ACCESS_KEY}"
     echo ""
 
     # S3 Secret Key
-    printf "${YELLOW}S3 Secret Key:${NC}\n"
+    echo -e "${YELLOW}S3 Secret Key:${NC}"
     echo "Enter the Vault path for your S3 secret access key."
     echo "Examples: 'company/s3/secret-key', 'secrets/s3-secret', 'vault-s3-secret-key'"
     echo ""
-    read -p "S3 Secret Key path [default: ${DEFAULT_S3_SECRET_KEY}]: " input
+    read -r -p "S3 Secret Key path [default: ${DEFAULT_S3_SECRET_KEY}]: " input
     S3_SECRET_KEY_PATH="${input:-$DEFAULT_S3_SECRET_KEY}"
     echo ""
 }
@@ -188,19 +256,19 @@ set_batch_defaults() {
 }
 
 confirm_configuration() {
-    printf "${BLUE}=== Configuration Summary ===${NC}\n"
+    echo -e "${BLUE}=== Configuration Summary ===${NC}"
     echo ""
-    printf "${YELLOW}Your credential mappings:${NC}\n"
+    echo -e "${YELLOW}Your credential mappings:${NC}"
     echo "  • GitHub Token: (($GITHUB_TOKEN_PATH))"
     echo "  • SSH Private Key: (($SSH_KEY_PATH))"
     echo "  • S3 Access Key: (($S3_ACCESS_KEY_PATH))"
     echo "  • S3 Secret Key: (($S3_SECRET_KEY_PATH))"
     echo ""
-    printf "${YELLOW}Output file:${NC} $OUTPUT_FILE\n"
+    echo -e "${YELLOW}Output file:${NC} $OUTPUT_FILE"
     echo ""
 
     if [[ "$INTERACTIVE_MODE" == "true" ]]; then
-        read -p "Continue with this configuration? (y/N): " -n 1 -r
+        read -r -p "Continue with this configuration? (y/N): " -n 1 REPLY
         echo ""
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             echo "Setup cancelled"
@@ -213,11 +281,11 @@ generate_custom_pipeline() {
     local template_file="$__DIR/ci/pipelines/pipeline-enterprise.yml"
 
     if [[ ! -f "$template_file" ]]; then
-        printf "${RED}Error: Template file not found: $template_file${NC}\n"
+        echo -e "${RED}Error: Template file not found: $template_file${NC}"
         exit 1
     fi
 
-    printf "${BLUE}Generating customized pipeline...${NC}\n"
+    echo -e "${BLUE}Generating customized pipeline...${NC}"
 
     # Ensure output directory exists
     mkdir -p "$(dirname "$OUTPUT_FILE")"
@@ -231,7 +299,8 @@ generate_custom_pipeline() {
         "$template_file" > "$OUTPUT_FILE"
 
     # Add header comment to the generated file
-    local temp_file=$(mktemp)
+    local temp_file
+    temp_file=$(mktemp)
     cat > "$temp_file" <<EOF
 # GitHub Release Pipeline - Enterprise (Customized)
 # Generated by setup-enterprise.sh on $(date)
@@ -254,32 +323,33 @@ EOF
 
 print_completion_message() {
     echo ""
-    printf "${GREEN}✓ Custom enterprise pipeline generated successfully!${NC}\n"
+    echo -e "${GREEN}✓ Custom enterprise pipeline generated successfully!${NC}"
     echo ""
-    printf "${YELLOW}Next steps:${NC}\n"
+    echo -e "${YELLOW}Next steps:${NC}"
     echo ""
     echo "1. Review the generated pipeline:"
-    printf "   ${BLUE}cat $OUTPUT_FILE${NC}\n"
+    echo -e "   ${BLUE}cat $OUTPUT_FILE${NC}"
     echo ""
     echo "2. Ensure your credentials exist in Vault:"
-    printf "   ${BLUE}• (($GITHUB_TOKEN_PATH)) - GitHub access token${NC}\n"
-    printf "   ${BLUE}• (($SSH_KEY_PATH)) - SSH private key${NC}\n"
-    printf "   ${BLUE}• (($S3_ACCESS_KEY_PATH)) - S3 access key ID${NC}\n"
-    printf "   ${BLUE}• (($S3_SECRET_KEY_PATH)) - S3 secret access key${NC}\n"
+    echo -e "   ${BLUE}• (($GITHUB_TOKEN_PATH)) - GitHub access token${NC}"
+    echo -e "   ${BLUE}• (($SSH_KEY_PATH)) - SSH private key${NC}"
+    echo -e "   ${BLUE}• (($S3_ACCESS_KEY_PATH)) - S3 access key ID${NC}"
+    echo -e "   ${BLUE}• (($S3_SECRET_KEY_PATH)) - S3 secret access key${NC}"
     echo ""
     echo "3. Deploy the customized pipeline:"
-    printf "   ${BLUE}./ci/fly-enterprise.sh -t my-target --params params.yml${NC}\n"
+    echo -e "   ${BLUE}./ci/fly-enterprise.sh -t my-target --params params.yml${NC}"
     echo ""
     echo "4. To use the custom pipeline file specifically:"
-    printf "   ${BLUE}fly -t my-target set-pipeline -p my-pipeline -c $OUTPUT_FILE -l params.yml${NC}\n"
+    echo -e "   ${BLUE}fly -t my-target set-pipeline -p my-pipeline -c $OUTPUT_FILE -l params.yml${NC}"
     echo ""
-    printf "${YELLOW}Note: You can always re-run this setup script to update your credential mappings.${NC}\n"
+    echo -e "${YELLOW}Note: You can always re-run this setup script to update your credential mappings.${NC}"
 }
 
 main() {
     print_header
 
     if [[ "$INTERACTIVE_MODE" == "true" ]]; then
+        check_params_file
         prompt_for_credentials
     else
         set_batch_defaults

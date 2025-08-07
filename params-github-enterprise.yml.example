@@ -28,9 +28,15 @@ release_body: |
 is_draft: false
 is_prerelease: false
 
-# Container Configuration (Basic Linux container with required tools)
-container_image_repository: ubuntu  # Use ubuntu:22.04 or your custom image
-container_image_tag: "22.04"  # LTS version with curl, jq available
+# Enterprise S3 Container Configuration
+concourse_s3_access_key_id: ((vault-s3-access-key))
+concourse_s3_secret_access_key: ((vault-s3-secret-key))
+concourse-s3-bucket: my-concourse-bucket
+concourse-s3-endpoint: https://s3.amazonaws.com
+cflinux_current_image: cflinux
+
+# Worker Configuration
+worker_tags: default
 
 # Notes:
 # - For ACME GitHub Enterprise, use github.acme.com
